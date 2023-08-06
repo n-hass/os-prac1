@@ -27,7 +27,7 @@ char line[NL]; /* command input buffer */
  */
 void prompt(void) {
   // fprintf(stdout, "\n msh> ");
-  fflush(stdout);
+  // fflush(stdout);
 }
 
 struct child_proc {
@@ -40,33 +40,84 @@ static struct child_proc* detached;
 static int n_detached = 0;
 static int process_num = 1;
 
+// void sigchld_handler (int signum) {
+//   int status, pid;
+  
+//   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+
+//     // Check if the PID is in the list of background processes
+//     for (int i = 0; i < n_detached; i++) {
+//       if (detached[i].pid == pid) {
+//         if (WIFEXITED(status)) {
+//           printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
+//           // fflush(stdout);
+//           prompt();
+//         }
+//         // Remove the PID from the list
+//         for (int j = i; j < n_detached - 1; j++) {
+//           detached[j] = detached[j + 1];
+//         }
+//         n_detached--;
+//         process_num--;
+//         break;
+//       }
+//     }
+
+//     break;
+
+//   }
+//   // prompt();
+//   // if (pid == -1 && errno != ECHILD) {
+//   //   perror("Command failed");
+//   // }
+// }
+
+// void sigchld_handler (int signum) {
+//   int status, pid;
+
+//   for (int i = 0; i < n_detached; i++) {
+//     pid = waitpid(detached[i].pid, &status, WNOHANG);
+    
+//     if (WIFEXITED(status)) {
+//       printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
+//       // fflush(stdout);
+//       // prompt();
+//     }
+//     // Remove the PID from the list
+//     for (int j = i; j < n_detached - 1; j++) {
+//       detached[j] = detached[j + 1];
+//     }
+//     n_detached--;
+//     process_num--;
+//     break;
+    
+//   }
+
+// }
+
 void sigchld_handler (int signum) {
   int status, pid;
-  
-  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-    // Check if the PID is in the list of background processes
-    for (int i = 0; i < n_detached; i++) {
-      if (detached[i].pid == pid) {
-        if (WIFEXITED(status)) {
-          printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
-          fflush(stdout);
-          prompt();
-        }
-        // Remove the PID from the list
-        for (int j = i; j < n_detached - 1; j++) {
-          detached[j] = detached[j + 1];
-        }
-        n_detached--;
-        process_num--;
-        break;
-      }
-    }
+
+  struct child_proc this_child = detached[0];
+
+  // Remove this process from the list
+  for (int j = 0; j < n_detached - 1; j++) {
+    detached[j] = detached[j + 1];
   }
-  // if (pid == -1 && errno != ECHILD) {
-  //   perror("Command failed");
-  // }
+  n_detached--;
+  
+  pid = waitpid(this_child.pid, &status, WNOHANG);
+  
+  if (WIFEXITED(status)) {
+    printf("[%d]+ Done %s\n", this_child.minishell_id, this_child.command);
+    process_num--;
+    // fflush(stdout);
+    // prompt();
+  }
+
 }
 
+pid_t shell_pgid;
 
 int main(int argk, char *argv[], char *envp[])
 /* argk - number of arguments */
@@ -82,11 +133,13 @@ int main(int argk, char *argv[], char *envp[])
   int background;      /* indicator to run process in background */
   
   signal(SIGCHLD, sigchld_handler); /* Register the sigchld handler */
-  detached = malloc(MAX_DETACHED * sizeof(int)); // Allocate memory for the detached list
+  detached = malloc(MAX_DETACHED * sizeof(struct child_proc)); // Allocate memory for the detached list
   if (detached == NULL) {
     perror("Failed to allocate memory for tracking detached processes");
     exit(EXIT_FAILURE);
   }
+
+  shell_pgid = getpgrp();
 
   /* prompt for and process one command line at a time  */
 
@@ -148,6 +201,7 @@ int main(int argk, char *argv[], char *envp[])
     case 0: /* code executed only by child process */
     {
       execvp(v[0], v);
+      fflush(stdout);
       perror(v[0]); // This will be executed if execvp fails
       exit(EXIT_FAILURE); // Terminate the child process with a failure status
     }
@@ -161,16 +215,18 @@ int main(int argk, char *argv[], char *envp[])
         }
         strcat(full_cmd, v[i-2]); // Concatenate the last token
 
-        struct child_proc new_child = {frkRtnVal, process_num, ""}; // Create a new child process
+        struct child_proc new_child = {frkRtnVal, process_num++, ""}; // Create a new child process
         strcpy(new_child.command, full_cmd); // Copy the command into the child process
 
-        detached[n_detached] = new_child; // Add the PID to the detached list
-        printf("[%d] %d\n", process_num, frkRtnVal);
-        
-        n_detached++;
-        process_num++;
+        detached[n_detached++] = new_child; // Add the PID to the detached list
+        printf("[%d] %d\n", new_child.minishell_id, new_child.pid);
+
+        // Bring the shell back into the foreground
+        tcsetpgrp(STDIN_FILENO, shell_pgid);
+
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
+        fflush(stdout);
         if (wpid == -1) {
           if (errno != ECHILD) perror("Command failed");
         } else {
