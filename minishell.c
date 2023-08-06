@@ -111,6 +111,7 @@ void sigchld_handler (int signum) {
   if (WIFEXITED(status)) {
     printf("[%d]+ Done %s\n", this_child.minishell_id, this_child.command);
     process_num--;
+    pid++; pid--;
     // fflush(stdout);
     // prompt();
   }
