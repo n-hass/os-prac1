@@ -18,6 +18,7 @@
 
 #define NV 20  /* max number of command tokens */
 #define NL 100 /* input buffer size */
+#define MAX_DETACHED 10 /* max number of detached processes */
 char line[NL]; /* command input buffer */
 
 /*
@@ -28,11 +29,29 @@ void prompt(void) {
   fflush(stdout);
 }
 
+static int* detached;
+static int n_detached = 0;
 void sigchld_handler (int signum) {
-  int status;
-  int pid = wait(&status);
-  printf("\nPID %d exited with status %d\n", pid, WEXITSTATUS(status));
-  prompt();
+  int status, pid;
+  
+  while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    // Check if the PID is in the list of background processes
+    for (int i = 0; i < n_detached; i++) {
+      if (detached[i] == pid) {
+        if (WIFEXITED(status)) {
+          printf("\nPID %d exited with status %d\n", pid, WEXITSTATUS(status));
+          fflush(stdout);
+          prompt();
+        }
+        // Remove the PID from the list
+        for (int j = i; j < n_detached - 1; j++) {
+          detached[j] = detached[j + 1];
+        }
+        n_detached--;
+        break;
+      }
+    }
+  }
 }
 
 
@@ -50,6 +69,7 @@ int main(int argk, char *argv[], char *envp[])
   int background;      /* indicator to run process in background */
   
   signal(SIGCHLD, sigchld_handler); /* Register the sigchld handler */
+  detached = malloc(MAX_DETACHED * sizeof(int)); // Allocate memory for the detached list
 
   /* prompt for and process one command line at a time  */
 
@@ -94,6 +114,11 @@ int main(int argk, char *argv[], char *envp[])
       v[i - 1] = NULL; // remove the trailing & from the command
     }
 
+    if (n_detached == MAX_DETACHED) { // If the detached list is full
+      printf("Max detached processes reached\n");
+      continue; // Skip the command
+    }
+
     /* fork a child process to exec the command in v[0] */
 
     switch (frkRtnVal = fork()) {
@@ -103,12 +128,14 @@ int main(int argk, char *argv[], char *envp[])
     }
     case 0: /* code executed only by child process */
     {
-      execvp(v[0], v);
+      execvp(v[0], v); // execute the command
     }
     default: /* code executed only by parent process */
     {
       if (background) { // If background mode is enabled
-        printf("Started %s in background\n", v[0]);
+        detached[n_detached] = frkRtnVal; // Add the PID to the detached list
+        n_detached++;
+        printf("Started %s in background with PID %d\n", v[0], frkRtnVal);
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
         printf("%s done\n", v[0]);
@@ -117,4 +144,6 @@ int main(int argk, char *argv[], char *envp[])
     }
     } /* switch */
   }   /* while */
+
+  free(detached); // Free the detached list
 } /* main */
