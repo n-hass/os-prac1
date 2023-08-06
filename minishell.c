@@ -127,7 +127,7 @@ void sigchld_handler (int signum) {
       if (errno != ECHILD) perror("Command failed");
     } else if (pid > 0) {
       if (WIFEXITED(status)) {
-        printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
+        printf("[%d]+ Done                        %s\n", detached[i].minishell_id, detached[i].command);
       }
       // Remove the PID from the list
       for (int j = i; j < n_detached - 1; j++) {
@@ -239,11 +239,15 @@ int main(int argk, char *argv[], char *envp[])
         }
         strcat(full_cmd, v[i-2]); // Concatenate the last token
 
-        struct child_proc new_child = {frkRtnVal, process_num++, ""}; // Create a new child process
+        struct child_proc new_child = {frkRtnVal, process_num, ""}; // Create a new child process
         strcpy(new_child.command, full_cmd); // Copy the command into the child process
 
-        detached[n_detached++] = new_child; // Add the PID to the detached list
-        printf("[%d] %d\n", new_child.minishell_id, new_child.pid);
+        detached[n_detached] = new_child; // Add the PID to the detached list
+        printf("[%d] %d\n", process_num, frkRtnVal);
+        fflush(stdout);
+        
+        process_num++;
+        n_detached++;
 
         // Bring the shell back into the foreground
         // tcsetpgrp(STDIN_FILENO, shell_pgid);
