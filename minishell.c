@@ -165,7 +165,8 @@ int main(int argk, char *argv[], char *envp[])
         strcpy(new_child.command, full_cmd); // Copy the command into the child process
 
         detached[n_detached] = new_child; // Add the PID to the detached list
-        printf("[%d] pid\n", process_num);
+        printf("[%d] %d\n", process_num, frkRtnVal);
+        
         n_detached++;
         process_num++;
       } else {
