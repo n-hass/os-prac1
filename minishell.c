@@ -246,7 +246,7 @@ int main(int argk, char *argv[], char *envp[])
         printf("[%d] %d\n", new_child.minishell_id, new_child.pid);
 
         // Bring the shell back into the foreground
-        tcsetpgrp(STDIN_FILENO, shell_pgid);
+        // tcsetpgrp(STDIN_FILENO, shell_pgid);
 
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
