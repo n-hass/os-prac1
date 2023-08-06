@@ -111,7 +111,7 @@ int main(int argk, char *argv[], char *envp[])
         chdir(getenv("HOME")); // if no directory is specified, change to the home directory
       } else {
         if (chdir(v[1]) == -1) { // perform the actual directory change with the specified directory
-          fprintf(stderr, "cd: %s: No such file or directory\n", v[1]); // report error if the cd fails
+          // fprintf(stderr, "cd: %s: No such file or directory\n", v[1]); // report error if the cd fails
         }
       }
     }
