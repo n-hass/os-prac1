@@ -96,7 +96,6 @@ static int process_num = 1;
 // }
 
 void sigchld_handler (int signum) {
-  int status, pid;
 
   struct child_proc this_child = detached[0];
 
@@ -106,7 +105,8 @@ void sigchld_handler (int signum) {
   }
   n_detached--;
   
-  pid = waitpid(this_child.pid, &status, WNOHANG);
+  int status;
+  int pid = waitpid(this_child.pid, &status, WNOHANG);
   
   if (WIFEXITED(status)) {
     printf("[%d]+ Done %s\n", this_child.minishell_id, this_child.command);
