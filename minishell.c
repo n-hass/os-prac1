@@ -28,6 +28,14 @@ void prompt(void) {
   fflush(stdout);
 }
 
+void sigchld_handler (int signum) {
+  int status;
+  int pid = wait(&status);
+  printf("\nPID %d exited with status %d\n", pid, WEXITSTATUS(status));
+  prompt();
+}
+
+
 int main(int argk, char *argv[], char *envp[])
 /* argk - number of arguments */
 /* argv - argument vector from command line */
@@ -40,6 +48,8 @@ int main(int argk, char *argv[], char *envp[])
   char *sep = " \t\n"; /* command line token separators    */
   int i;               /* parse index */
   int background;      /* indicator to run process in background */
+  
+  signal(SIGCHLD, sigchld_handler); /* Register the sigchld handler */
 
   /* prompt for and process one command line at a time  */
 
@@ -87,7 +97,7 @@ int main(int argk, char *argv[], char *envp[])
       if (background) { // If background mode is enabled
         printf("Started %s in background\n", v[0]);
       } else {
-        wpid = wait(0);
+        wpid = wait(0); // wait for the child process to finish like normal (in foreground)
         printf("%s done\n", v[0]);
       }
       break;
