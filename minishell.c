@@ -62,9 +62,9 @@ void sigchld_handler (int signum) {
       }
     }
   }
-  if (pid == -1 && errno != ECHILD) {
-    perror("Command failed");
-  }
+  // if (pid == -1 && errno != ECHILD) {
+  //   perror("Command failed");
+  // }
 }
 
 
@@ -123,6 +123,7 @@ int main(int argk, char *argv[], char *envp[])
           // fprintf(stderr, "cd: %s: No such file or directory\n", v[1]); // report error if the cd fails
         }
       }
+      continue; // skip the rest of the command
     }
 
     background = 0; // assume the process should not run in the background
@@ -153,7 +154,7 @@ int main(int argk, char *argv[], char *envp[])
     default: /* code executed only by parent process */
     {
       if (background) { // If background mode is enabled
-        char full_cmd[NL] = ""; // Create a string to hold the command
+        char full_cmd[NL] = ""; // Create a charray to hold the command
         for(int k=0; k<i-2; k++) {
           strcat(full_cmd, v[k]); // Concatenate the command tokens into a single string
           strcat(full_cmd, " ");
