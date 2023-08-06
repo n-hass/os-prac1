@@ -95,25 +95,48 @@ static int process_num = 1;
 
 // }
 
+// void sigchld_handler (int signum) {
+
+//   struct child_proc this_child = detached[0];
+
+//   // Remove this process from the list
+//   for (int j = 0; j < n_detached - 1; j++) {
+//     detached[j] = detached[j + 1];
+//   }
+//   n_detached--;
+  
+//   int status;
+//   int pid = waitpid(this_child.pid, &status, WNOHANG);
+  
+//   if (WIFEXITED(status)) {
+//     printf("[%d]+ Done %s\n", this_child.minishell_id, this_child.command);
+//     process_num--;
+//     pid++; pid--;
+//     // fflush(stdout);
+//     // prompt();
+//   }
+
+// }
+
 void sigchld_handler (int signum) {
 
-  struct child_proc this_child = detached[0];
-
-  // Remove this process from the list
-  for (int j = 0; j < n_detached - 1; j++) {
-    detached[j] = detached[j + 1];
-  }
-  n_detached--;
-  
-  int status;
-  int pid = waitpid(this_child.pid, &status, WNOHANG);
-  
-  if (WIFEXITED(status)) {
-    printf("[%d]+ Done %s\n", this_child.minishell_id, this_child.command);
-    process_num--;
-    pid++; pid--;
-    // fflush(stdout);
-    // prompt();
+  int status, pid;
+  for (int i=0; i<n_detached; i++) {
+    pid = waitpid(detached[i].pid, &status, WNOHANG);
+    if (pid == -1) {
+      if (errno != ECHILD) perror("Command failed");
+    } else if (pid > 0) {
+      if (WIFEXITED(status)) {
+        printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
+      }
+      // Remove the PID from the list
+      for (int j = i; j < n_detached - 1; j++) {
+        detached[j] = detached[j + 1];
+      }
+      n_detached--;
+      process_num--;
+      break;
+    }
   }
 
 }
