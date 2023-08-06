@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define NV 20  /* max number of command tokens */
 #define NL 100 /* input buffer size */
@@ -52,6 +53,9 @@ void sigchld_handler (int signum) {
       }
     }
   }
+  if (pid == -1 && errno != ECHILD) {
+    perror("Command failed");
+  }
 }
 
 
@@ -70,6 +74,10 @@ int main(int argk, char *argv[], char *envp[])
   
   signal(SIGCHLD, sigchld_handler); /* Register the sigchld handler */
   detached = malloc(MAX_DETACHED * sizeof(int)); // Allocate memory for the detached list
+  if (detached == NULL) {
+    perror("Failed to allocate memory for tracking detached processes");
+    exit(EXIT_FAILURE);
+  }
 
   /* prompt for and process one command line at a time  */
 
@@ -124,11 +132,14 @@ int main(int argk, char *argv[], char *envp[])
     switch (frkRtnVal = fork()) {
     case -1: /* fork returns error to parent process */
     {
+      perror("Fork failed");
       break;
     }
     case 0: /* code executed only by child process */
     {
-      execvp(v[0], v); // execute the command
+      execvp(v[0], v);
+      perror(v[0]); // This will be executed if execvp fails
+      exit(EXIT_FAILURE); // Terminate the child process with a failure status
     }
     default: /* code executed only by parent process */
     {
@@ -138,7 +149,11 @@ int main(int argk, char *argv[], char *envp[])
         printf("Started %s in background with PID %d\n", v[0], frkRtnVal);
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
-        printf("%s done\n", v[0]);
+        if (wpid == -1) {
+          if (errno != ECHILD) perror("Command failed");
+        } else {
+          printf("%s done\n", v[0]);
+        }
       }
       break;
     }
