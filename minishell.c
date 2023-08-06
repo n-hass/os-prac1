@@ -146,7 +146,7 @@ int main(int argk, char *argv[], char *envp[])
       if (background) { // If background mode is enabled
         detached[n_detached] = frkRtnVal; // Add the PID to the detached list
         n_detached++;
-        printf("Started %s in background with PID %d\n", v[0], frkRtnVal);
+        // printf("Started %s in background with PID %d\n", v[0], frkRtnVal);
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
         if (wpid == -1) {
