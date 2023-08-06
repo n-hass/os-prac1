@@ -26,21 +26,29 @@ char line[NL]; /* command input buffer */
         shell prompt
  */
 void prompt(void) {
-  fprintf(stdout, "\n msh> ");
+  // fprintf(stdout, "\n msh> ");
   fflush(stdout);
 }
 
-static int* detached;
+struct child_proc {
+  int pid;
+  int minishell_id;
+  char command[NL];
+};
+
+static struct child_proc* detached;
 static int n_detached = 0;
+static int process_num = 1;
+
 void sigchld_handler (int signum) {
   int status, pid;
   
   while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
     // Check if the PID is in the list of background processes
     for (int i = 0; i < n_detached; i++) {
-      if (detached[i] == pid) {
+      if (detached[i].pid == pid) {
         if (WIFEXITED(status)) {
-          printf("\nPID %d exited with status %d\n", pid, WEXITSTATUS(status));
+          printf("[%d]+ Done %s\n", detached[i].minishell_id, detached[i].command);
           fflush(stdout);
           prompt();
         }
@@ -49,6 +57,7 @@ void sigchld_handler (int signum) {
           detached[j] = detached[j + 1];
         }
         n_detached--;
+        process_num--;
         break;
       }
     }
@@ -89,8 +98,8 @@ int main(int argk, char *argv[], char *envp[])
     // PROCESS TOKENS //
     if (feof(stdin)) { /* non-zero on EOF  */
 
-      fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin),
-              ferror(stdin));
+      // fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin),
+      //         ferror(stdin));
       exit(0);
     }
     if (line[0] == '#' || line[0] == '\n' || line[0] == '\000')
@@ -144,15 +153,26 @@ int main(int argk, char *argv[], char *envp[])
     default: /* code executed only by parent process */
     {
       if (background) { // If background mode is enabled
-        detached[n_detached] = frkRtnVal; // Add the PID to the detached list
+        char full_cmd[NL] = ""; // Create a string to hold the command
+        for(int k=0; k<i-2; k++) {
+          strcat(full_cmd, v[k]); // Concatenate the command tokens into a single string
+          strcat(full_cmd, " ");
+        }
+        strcat(full_cmd, v[i-2]); // Concatenate the last token
+
+        struct child_proc new_child = {frkRtnVal, process_num, ""}; // Create a new child process
+        strcpy(new_child.command, full_cmd); // Copy the command into the child process
+
+        detached[n_detached] = new_child; // Add the PID to the detached list
+        printf("[%d] pid\n", process_num);
         n_detached++;
-        // printf("Started %s in background with PID %d\n", v[0], frkRtnVal);
+        process_num++;
       } else {
         wpid = wait(0); // wait for the child process to finish like normal (in foreground)
         if (wpid == -1) {
           if (errno != ECHILD) perror("Command failed");
         } else {
-          printf("%s done\n", v[0]);
+          // printf("%s done\n", v[0]);
         }
       }
       break;
