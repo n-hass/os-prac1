@@ -58,6 +58,7 @@ int main(int argk, char *argv[], char *envp[])
     fgets(line, NL, stdin);
     fflush(stdin);
 
+    // PROCESS TOKENS //
     if (feof(stdin)) { /* non-zero on EOF  */
 
       fprintf(stderr, "EOF pid %d feof %d ferror %d\n", getpid(), feof(stdin),
@@ -74,6 +75,18 @@ int main(int argk, char *argv[], char *envp[])
         break;
     }
     /* assert i is number of tokens + 1 */
+
+    // PROCESS COMMAND //
+
+    if (strcmp(v[0], "cd") == 0) { // check for the cd command
+      if (v[1] == NULL) { // if no directory is specified
+        chdir(getenv("HOME")); // if no directory is specified, change to the home directory
+      } else {
+        if (chdir(v[1]) == -1) { // perform the actual directory change with the specified directory
+          fprintf(stderr, "cd: %s: No such file or directory\n", v[1]); // report error if the cd fails
+        }
+      }
+    }
 
     background = 0; // assume the process should not run in the background
     if (v[i - 1] != NULL && strcmp(v[i - 1], "&") == 0) {
