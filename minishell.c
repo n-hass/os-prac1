@@ -52,6 +52,9 @@ static int job_num = 1; // id number for backgrounding commands (starting at 1, 
  * executed in the background. When a detached process finishes, the handler
  * checks the processes that were launched in the background and reports completion
  * for the appropriate command.
+ *
+ * As there is no guarentee that a specific sigchld signal relates to a specific child process,
+ * we will check for any job that is backgrounded and wait for the first one 
  */
 void sigchld_handler (int signum) {
 
@@ -71,11 +74,12 @@ void sigchld_handler (int signum) {
       if (WIFEXITED(status)) {
         printf("[%d]+ Done                        %s %d\n", detached[i].job_id, detached[i].command, detached[i].pid);
       }
-      // Instead of shifting the array, tombstone this entry
+      
+      // Instead of shifting the array, tombstone this entry so it can be overwritten
       detached[i].pid = -1;
 
       job_num--;
-      break;
+      break; // break as other entries are handled by unique calls to SIG_CHLD
     }
   }
 
@@ -187,6 +191,10 @@ int main(int argk, char *argv[], char *envp[])
         struct child_proc new_child = {frkRtnVal, job_num, ""}; // Create a new child process state container
         strcpy(new_child.command, full_cmd);
 
+        /*
+         * this loop finds a free position in the list of detached processes
+         * This is signalled by whether an entry is tombstoned or not
+        */ 
         int index = job_num-1;
         while (detached[index].pid != -1) {
           // printf("went to allocate to array pos %d, but it was already used\n", job_num-1);
