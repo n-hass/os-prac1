@@ -36,7 +36,7 @@ void prompt(void) {
 // a struct to hold the state of backgrounded/detached commands
 struct child_proc {
   int pid; // the unix PID of the spawned forked process
-  int minishell_id; // the ID given by the shell for the command (starting at 1, ie [1], [2], etc.)
+  int job_id; // the ID given by the shell for the command (starting at 1, ie [1], [2], etc.)
   char command[NL]; // the command that is being run
 };
 
@@ -69,7 +69,7 @@ void sigchld_handler (int signum) {
       if (errno != ECHILD) perror("Command failed");
     } else if (pid > 0) {
       if (WIFEXITED(status)) {
-        printf("[%d]+ Done                        %s\n", detached[i].minishell_id, detached[i].command);
+        printf("[%d]+ Done                        %s %d\n", detached[i].job_id, detached[i].command, detached[i].pid);
       }
       // Instead of shifting the array, tombstone this entry
       detached[i].pid = -1;
@@ -187,7 +187,13 @@ int main(int argk, char *argv[], char *envp[])
         struct child_proc new_child = {frkRtnVal, job_num, ""}; // Create a new child process state container
         strcpy(new_child.command, full_cmd);
 
+        int index = job_num-1;
+        while (detached[index].pid != -1) {
+          // printf("went to allocate to array pos %d, but it was already used\n", job_num-1);
+          index = (index + 1) % MAX_DETACHED; // Find the next available position in the list of detached processes
+        }
         detached[job_num-1] = new_child; // Add the new child process to the list of backgrounded commands being executed
+        
         printf("[%d] %d\n", job_num, frkRtnVal);
         fflush(stdout);
         
