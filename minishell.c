@@ -43,7 +43,7 @@ struct child_proc {
 
 static struct child_proc* detached; // a list of detached processes for tracking their execution
 static int n_detached = 0; // number of detached processes
-static int process_num = 1; // id number for backgrounding commands (starting at 1, ie [1], [2], etc.)
+static int job_num = 1; // id number for backgrounding commands (starting at 1, ie [1], [2], etc.)
 
 
 /**
@@ -71,7 +71,7 @@ void sigchld_handler (int signum) {
         detached[j] = detached[j + 1];
       }
       n_detached--;
-      process_num--;
+      job_num--;
       break;
     }
   }
@@ -131,7 +131,7 @@ int main(int argk, char *argv[], char *envp[])
         chdir(getenv("HOME")); // if no directory is specified, change to the home directory
       } else {
         if (chdir(v[1]) == -1) { // perform the actual directory change with the specified directory
-          // fprintf(stderr, "cd: %s: No such file or directory\n", v[1]); // report error if the cd fails
+          perror("cd"); // report error if the cd fails
         }
       }
       continue; // skip the rest of the command
@@ -173,14 +173,14 @@ int main(int argk, char *argv[], char *envp[])
         }
         strcat(full_cmd, v[i-2]); // Concatenate the last token
 
-        struct child_proc new_child = {frkRtnVal, process_num, ""}; // Create a new child process state container
+        struct child_proc new_child = {frkRtnVal, job_num, ""}; // Create a new child process state container
         strcpy(new_child.command, full_cmd);
 
         detached[n_detached] = new_child; // Add the new child process to the list of backgrounded commands being executed
-        printf("[%d] %d\n", process_num, frkRtnVal);
+        printf("[%d] %d\n", job_num, frkRtnVal);
         fflush(stdout);
         
-        process_num++;
+        job_num++;
         n_detached++;
 
         // Bring the shell back into the foreground - not needed
