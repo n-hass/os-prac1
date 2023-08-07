@@ -42,7 +42,7 @@ struct child_proc {
 
 
 static struct child_proc* detached; // a list of detached processes for tracking their execution
-static int n_detached = 0; // number of detached processes
+// static int n_detached = 0; // number of detached processes
 static int job_num = 1; // id number for backgrounding commands (starting at 1, ie [1], [2], etc.)
 
 
@@ -58,19 +58,22 @@ void sigchld_handler (int signum) {
   int status, pid;
 
   // this for loop iterates through the detached processes, checking their completion and reporting it when that occurs
-  for (int i=0; i<n_detached; i++) {
+  for (int i=0; i<MAX_DETACHED; i++) {
+    
+    if (detached[i].pid == -1) { // this requires that the list of detached processes is initialised with tombstones
+      continue; // if this entry is tombstone, skip it
+    }
+    
     pid = waitpid(detached[i].pid, &status, WNOHANG); // wait until the detached process has finished
-    if (pid == -1) {
+    if (pid == -1) { // if there was an error that was not ECHILD, report it
       if (errno != ECHILD) perror("Command failed");
     } else if (pid > 0) {
       if (WIFEXITED(status)) {
         printf("[%d]+ Done                        %s\n", detached[i].minishell_id, detached[i].command);
       }
-      // Remove this process from the list and move everything else up
-      for (int j = i; j < n_detached - 1; j++) {
-        detached[j] = detached[j + 1];
-      }
-      n_detached--;
+      // Instead of shifting the array, tombstone this entry
+      detached[i].pid = -1;
+
       job_num--;
       break;
     }
@@ -94,9 +97,17 @@ int main(int argk, char *argv[], char *envp[])
   
   signal(SIGCHLD, sigchld_handler); /* Register the sigchld handler */
   detached = malloc(MAX_DETACHED * sizeof(struct child_proc)); // Allocate memory for the detached list
-  if (detached == NULL) {
+  if (detached == NULL) { // catch a memory allocation failure (if there was one)
     perror("Failed to allocate memory for tracking detached processes");
     exit(EXIT_FAILURE);
+  }
+
+  /* Initialise the list of detached processes with tombstones 
+   * we do this so the sigchld_handler correctly skips the corresponding 'inactive' entries
+   * in the list of detached processes. 
+  */
+  for (int j=0; j<MAX_DETACHED; j++) {
+    detached[j].pid = -1;
   }
 
   /* prompt for and process one command line at a time  */
@@ -143,7 +154,7 @@ int main(int argk, char *argv[], char *envp[])
       v[i - 1] = NULL; // remove the trailing & from the command
     }
 
-    if (n_detached == MAX_DETACHED) { // If the list of detached commands is full, report an error and skip it
+    if (job_num-1 >= MAX_DETACHED) { // If the list of detached commands is full, report an error and skip it
       printf("Max detached processes reached\n");
       continue;
     }
@@ -176,12 +187,11 @@ int main(int argk, char *argv[], char *envp[])
         struct child_proc new_child = {frkRtnVal, job_num, ""}; // Create a new child process state container
         strcpy(new_child.command, full_cmd);
 
-        detached[n_detached] = new_child; // Add the new child process to the list of backgrounded commands being executed
+        detached[job_num-1] = new_child; // Add the new child process to the list of backgrounded commands being executed
         printf("[%d] %d\n", job_num, frkRtnVal);
         fflush(stdout);
         
         job_num++;
-        n_detached++;
 
         // Bring the shell back into the foreground - not needed
         // tcsetpgrp(STDIN_FILENO, shell_pgid);
