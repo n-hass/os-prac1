@@ -72,7 +72,7 @@ void sigchld_handler (int signum) {
       if (errno != ECHILD) perror("Command failed");
     } else if (pid > 0) {
       if (WIFEXITED(status)) {
-        printf("[%d]+ Done                        %s %d\n", detached[i].job_id, detached[i].command, detached[i].pid);
+        printf("[%d]+ Done                        %s\n", detached[i].job_id, detached[i].command);
       }
       
       // Instead of shifting the array, tombstone this entry so it can be overwritten
