@@ -41,8 +41,7 @@ struct child_proc {
 };
 
 
-static struct child_proc* detached; // a list of detached processes for tracking their execution
-// static int n_detached = 0; // number of detached processes
+static struct child_proc* detached; // a list of detached processes for tracking their execution 
 static int job_num = 1; // id number for backgrounding commands (starting at 1, ie [1], [2], etc.)
 
 
